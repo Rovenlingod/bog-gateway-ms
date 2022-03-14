@@ -9,6 +9,8 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 public class JwtTokenFilter extends OncePerRequestFilter {
@@ -23,13 +25,11 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws IOException, ServletException {
         String token = jwtTokenProvider.resolveToken(request);
-
-        if (!Objects.isNull(token) && jwtTokenProvider.validateToken(token)) {
+        if (!Objects.isNull(token)) {
             Authentication auth = jwtTokenProvider.getAuthentication(token);
             if (!Objects.isNull(auth))
                 SecurityContextHolder.getContext().setAuthentication(auth);
         }
-
         filterChain.doFilter(request, response);
     }
 }

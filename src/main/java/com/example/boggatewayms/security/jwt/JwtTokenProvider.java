@@ -1,6 +1,7 @@
 package com.example.boggatewayms.security.jwt;
 
 import com.example.boggatewayms.exception.UnauthorisedException;
+import com.example.boggatewayms.feign.LoginServiceFeign;
 import com.example.boggatewayms.security.CustomUserDetailsService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
@@ -19,28 +20,19 @@ import java.util.Objects;
 
 @Component
 public class JwtTokenProvider {
-    private final JwtProperties jwtProperties;
+
     private final CustomUserDetailsService userDetailsService;
+    private final LoginServiceFeign loginServiceFeign;
 
-    private String secretKey;
 
-    public JwtTokenProvider(JwtProperties jwtProperties, CustomUserDetailsService userDetailsService) {
-        this.jwtProperties = jwtProperties;
+    public JwtTokenProvider(CustomUserDetailsService userDetailsService, LoginServiceFeign loginServiceFeign) {
         this.userDetailsService = userDetailsService;
-    }
-
-    @PostConstruct
-    protected void init() {
-        secretKey = Base64.getEncoder().encodeToString(jwtProperties.getSecretKey().getBytes());
+        this.loginServiceFeign = loginServiceFeign;
     }
 
     public Authentication getAuthentication(String token) {
-        UserDetails userDetails = this.userDetailsService.loadUserByUsername(getUsername(token));
-        return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
-    }
-
-    private String getUsername(String token) {
-        return Jwts.parser().setSigningKey(secretKey).parseClaimsJws(token).getBody().getSubject();
+        UserDetails userDetails = this.userDetailsService.loadUserByUsername(loginServiceFeign.validateToken(token));
+        return new UsernamePasswordAuthenticationToken(userDetails, token, userDetails.getAuthorities());
     }
 
     public String resolveToken(HttpServletRequest req) {
@@ -50,16 +42,4 @@ public class JwtTokenProvider {
                 bearerToken.substring(7) : null;
     }
 
-    public boolean validateToken(String token) {
-
-        try {
-            Jws<Claims> claims = Jwts.parser()
-                    .setSigningKey(secretKey)
-                    .parseClaimsJws(token);
-
-            return (!claims.getBody().getExpiration().before(new Date()));
-        } catch (JwtException | IllegalArgumentException e) {
-            throw new UnauthorisedException("Invalid Token");
-        }
-    }
 }
